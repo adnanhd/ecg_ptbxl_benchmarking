@@ -6,6 +6,7 @@ class ClassificationModel(object):
 
     def fit(self, X_train, y_train, X_val, y_val):
         pass
-            
+
     def predict(self, X, full_sequence=True):
         pass
+

@@ -6,6 +6,7 @@ import numpy as np
 import multiprocessing
 from itertools import repeat
 
+
 class SCP_Experiment():
     '''
         Experiment on SCP-ECG statements. All experiments based on SCP are performed and evaluated the same way.
@@ -36,15 +37,18 @@ class SCP_Experiment():
 
     def prepare(self):
         # Load PTB-XL data
-        self.data, self.raw_labels = utils.load_dataset(self.datafolder, self.sampling_frequency)
+        self.data, self.raw_labels = utils.load_dataset(
+            self.datafolder, self.sampling_frequency)
 
         # Preprocess label data
-        self.labels = utils.compute_label_aggregations(self.raw_labels, self.datafolder, self.task)
+        self.labels = utils.compute_label_aggregations(
+            self.raw_labels, self.datafolder, self.task)
 
         # Select relevant data and convert to one-hot
-        self.data, self.labels, self.Y, _ = utils.select_data(self.data, self.labels, self.task, self.min_samples, self.outputfolder+self.experiment_name+'/data/')
+        self.data, self.labels, self.Y, _ = utils.select_data(
+            self.data, self.labels, self.task, self.min_samples, self.outputfolder+self.experiment_name+'/data/')
         self.input_shape = self.data[0].shape
-        
+
         # 10th fold for testing (9th for now)
         self.X_test = self.data[self.labels.strat_fold == self.test_fold]
         self.y_test = self.Y[self.labels.strat_fold == self.test_fold]
@@ -56,13 +60,17 @@ class SCP_Experiment():
         self.y_train = self.Y[self.labels.strat_fold <= self.train_fold]
 
         # Preprocess signal data
-        self.X_train, self.X_val, self.X_test = utils.preprocess_signals(self.X_train, self.X_val, self.X_test, self.outputfolder+self.experiment_name+'/data/')
+        self.X_train, self.X_val, self.X_test = utils.preprocess_signals(
+            self.X_train, self.X_val, self.X_test, self.outputfolder+self.experiment_name+'/data/')
         self.n_classes = self.y_train.shape[1]
 
         # save train and test labels
-        self.y_train.dump(self.outputfolder + self.experiment_name+ '/data/y_train.npy')
-        self.y_val.dump(self.outputfolder + self.experiment_name+ '/data/y_val.npy')
-        self.y_test.dump(self.outputfolder + self.experiment_name+ '/data/y_test.npy')
+        self.y_train.dump(self.outputfolder +
+                          self.experiment_name + '/data/y_train.npy')
+        self.y_val.dump(self.outputfolder +
+                        self.experiment_name + '/data/y_val.npy')
+        self.y_test.dump(self.outputfolder +
+                         self.experiment_name + '/data/y_test.npy')
 
         modelname = 'naive'
         # create most naive predictions via simple mean in training
@@ -96,14 +104,17 @@ class SCP_Experiment():
             # load respective model
             if modeltype == 'WAVELET':
                 from models.wavelet import WaveletModel
-                model = WaveletModel(modelname, n_classes, self.sampling_frequency, mpath, self.input_shape, **modelparams)
+                model = WaveletModel(
+                    modelname, n_classes, self.sampling_frequency, mpath, self.input_shape, **modelparams)
             elif modeltype == "fastai_model":
                 from models.fastai_model import fastai_model
-                model = fastai_model(modelname, n_classes, self.sampling_frequency, mpath, self.input_shape, **modelparams)
-            elif modeltype == "YOUR_MODEL_TYPE":
+                model = fastai_model(
+                    modelname, n_classes, self.sampling_frequency, mpath, self.input_shape, **modelparams)
+            elif modeltype == "ResidualNetwork":
                 # YOUR MODEL GOES HERE!
-                from models.your_model import YourModel
-                model = YourModel(modelname, n_classes, self.sampling_frequency, mpath, self.input_shape, **modelparams)
+                from models.resnet18 import ResNet18
+                model = ResNet18(
+                    modelname, n_classes, self.sampling_frequency, mpath, self.input_shape, **modelparams)
             else:
                 assert(True)
                 break
@@ -124,42 +135,53 @@ class SCP_Experiment():
         if not os.path.exists(ensemblepath+'results/'):
             os.makedirs(ensemblepath+'results/')
         # load all predictions
-        ensemble_train, ensemble_val, ensemble_test = [],[],[]
+        ensemble_train, ensemble_val, ensemble_test = [], [], []
         for model_description in os.listdir(self.outputfolder+self.experiment_name+'/models/'):
             if not model_description in ['ensemble', 'naive']:
                 mpath = self.outputfolder+self.experiment_name+'/models/'+model_description+'/'
-                ensemble_train.append(np.load(mpath+'y_train_pred.npy', allow_pickle=True))
-                ensemble_val.append(np.load(mpath+'y_val_pred.npy', allow_pickle=True))
-                ensemble_test.append(np.load(mpath+'y_test_pred.npy', allow_pickle=True))
+                ensemble_train.append(
+                    np.load(mpath+'y_train_pred.npy', allow_pickle=True))
+                ensemble_val.append(
+                    np.load(mpath+'y_val_pred.npy', allow_pickle=True))
+                ensemble_test.append(
+                    np.load(mpath+'y_test_pred.npy', allow_pickle=True))
         # dump mean predictions
-        np.array(ensemble_train).mean(axis=0).dump(ensemblepath + 'y_train_pred.npy')
-        np.array(ensemble_test).mean(axis=0).dump(ensemblepath + 'y_test_pred.npy')
-        np.array(ensemble_val).mean(axis=0).dump(ensemblepath + 'y_val_pred.npy')
+        np.array(ensemble_train).mean(axis=0).dump(
+            ensemblepath + 'y_train_pred.npy')
+        np.array(ensemble_test).mean(axis=0).dump(
+            ensemblepath + 'y_test_pred.npy')
+        np.array(ensemble_val).mean(axis=0).dump(
+            ensemblepath + 'y_val_pred.npy')
 
     def evaluate(self, n_bootstraping_samples=100, n_jobs=20, bootstrap_eval=False, dumped_bootstraps=True):
 
         # get labels
-        y_train = np.load(self.outputfolder+self.experiment_name+'/data/y_train.npy', allow_pickle=True)
+        y_train = np.load(self.outputfolder+self.experiment_name +
+                          '/data/y_train.npy', allow_pickle=True)
         #y_val = np.load(self.outputfolder+self.experiment_name+'/data/y_val.npy', allow_pickle=True)
-        y_test = np.load(self.outputfolder+self.experiment_name+'/data/y_test.npy', allow_pickle=True)
+        y_test = np.load(self.outputfolder+self.experiment_name +
+                         '/data/y_test.npy', allow_pickle=True)
 
         # if bootstrapping then generate appropriate samples for each
         if bootstrap_eval:
             if not dumped_bootstraps:
                 #train_samples = np.array(utils.get_appropriate_bootstrap_samples(y_train, n_bootstraping_samples))
-                test_samples = np.array(utils.get_appropriate_bootstrap_samples(y_test, n_bootstraping_samples))
+                test_samples = np.array(utils.get_appropriate_bootstrap_samples(
+                    y_test, n_bootstraping_samples))
                 #val_samples = np.array(utils.get_appropriate_bootstrap_samples(y_val, n_bootstraping_samples))
             else:
-                test_samples = np.load(self.outputfolder+self.experiment_name+'/test_bootstrap_ids.npy', allow_pickle=True)
+                test_samples = np.load(
+                    self.outputfolder+self.experiment_name+'/test_bootstrap_ids.npy', allow_pickle=True)
         else:
             #train_samples = np.array([range(len(y_train))])
             test_samples = np.array([range(len(y_test))])
             #val_samples = np.array([range(len(y_val))])
 
         # store samples for future evaluations
-        #train_samples.dump(self.outputfolder+self.experiment_name+'/train_bootstrap_ids.npy')
-        test_samples.dump(self.outputfolder+self.experiment_name+'/test_bootstrap_ids.npy')
-        #val_samples.dump(self.outputfolder+self.experiment_name+'/val_bootstrap_ids.npy')
+        # train_samples.dump(self.outputfolder+self.experiment_name+'/train_bootstrap_ids.npy')
+        test_samples.dump(self.outputfolder +
+                          self.experiment_name+'/test_bootstrap_ids.npy')
+        # val_samples.dump(self.outputfolder+self.experiment_name+'/val_bootstrap_ids.npy')
 
         # iterate over all models fitted so far
         for m in sorted(os.listdir(self.outputfolder+self.experiment_name+'/models')):
@@ -174,7 +196,8 @@ class SCP_Experiment():
 
             if self.experiment_name == 'exp_ICBEB':
                 # compute classwise thresholds such that recall-focused Gbeta is optimized
-                thresholds = utils.find_optimal_cutoff_thresholds_for_Gbeta(y_train, y_train_pred)
+                thresholds = utils.find_optimal_cutoff_thresholds_for_Gbeta(
+                    y_train, y_train_pred)
             else:
                 thresholds = None
 
@@ -184,38 +207,40 @@ class SCP_Experiment():
             # tr_df_point = utils.generate_results(range(len(y_train)), y_train, y_train_pred, thresholds)
             # tr_df_result = pd.DataFrame(
             #     np.array([
-            #         tr_df_point.mean().values, 
+            #         tr_df_point.mean().values,
             #         tr_df.mean().values,
             #         tr_df.quantile(0.05).values,
-            #         tr_df.quantile(0.95).values]), 
+            #         tr_df.quantile(0.95).values]),
             #     columns=tr_df.columns,
             #     index=['point', 'mean', 'lower', 'upper'])
 
-            te_df = pd.concat(pool.starmap(utils.generate_results, zip(test_samples, repeat(y_test), repeat(y_test_pred), repeat(thresholds))))
-            te_df_point = utils.generate_results(range(len(y_test)), y_test, y_test_pred, thresholds)
+            te_df = pd.concat(pool.starmap(utils.generate_results, zip(
+                test_samples, repeat(y_test), repeat(y_test_pred), repeat(thresholds))))
+            te_df_point = utils.generate_results(
+                range(len(y_test)), y_test, y_test_pred, thresholds)
             te_df_result = pd.DataFrame(
                 np.array([
-                    te_df_point.mean().values, 
+                    te_df_point.mean().values,
                     te_df.mean().values,
                     te_df.quantile(0.05).values,
-                    te_df.quantile(0.95).values]), 
-                columns=te_df.columns, 
+                    te_df.quantile(0.95).values]),
+                columns=te_df.columns,
                 index=['point', 'mean', 'lower', 'upper'])
 
             # val_df = pd.concat(pool.starmap(utils.generate_results, zip(val_samples, repeat(y_val), repeat(y_val_pred), repeat(thresholds))))
             # val_df_point = utils.generate_results(range(len(y_val)), y_val, y_val_pred, thresholds)
             # val_df_result = pd.DataFrame(
             #     np.array([
-            #         val_df_point.mean().values, 
+            #         val_df_point.mean().values,
             #         val_df.mean().values,
             #         val_df.quantile(0.05).values,
-            #         val_df.quantile(0.95).values]), 
-            #     columns=val_df.columns, 
+            #         val_df.quantile(0.95).values]),
+            #     columns=val_df.columns,
             #     index=['point', 'mean', 'lower', 'upper'])
 
             pool.close()
 
             # dump results
-            #tr_df_result.to_csv(rpath+'tr_results.csv')
-            #val_df_result.to_csv(rpath+'val_results.csv')
+            # tr_df_result.to_csv(rpath+'tr_results.csv')
+            # val_df_result.to_csv(rpath+'val_results.csv')
             te_df_result.to_csv(rpath+'te_results.csv')
